@@ -36,6 +36,7 @@ import (
 	"github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/params"
@@ -175,6 +176,12 @@ func CommitGenesisBlock(db kv.RwDB, genesis *Genesis) (*params.ChainConfig, *typ
 		return nil, nil, err
 	}
 	defer tx.Rollback()
+	var b *types.Block
+	defer func() {
+		// Set the genesis block hash to support chains to upgrade the system contracts
+		// TODO: need a better way instead of this global variable, will refactor it later
+		systemcontracts.GenesisHash = b.Hash()
+	}()
 	c, b, err := WriteGenesisBlock(tx, genesis)
 	if err != nil {
 		return c, b, err
