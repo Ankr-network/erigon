@@ -622,14 +622,18 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 func (hd *HeaderDownload) InsertHeaders(hf func(header *types.Header, headerRaw []byte, hash common.Hash, blockHeight uint64, terminalTotalDifficulty *big.Int) (bool, error), terminalTotalDifficulty *big.Int, logPrefix string, logChannel <-chan time.Time) (bool, error) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-
 	var linksInFuture []*Link // Here we accumulate links that fail validation as "in the future"
 	for len(hd.insertList) > 0 {
 		// Make sure long insertions do not appear as a stuck stage 1
+		exit := false
 		select {
 		case <-logChannel:
 			log.Info(fmt.Sprintf("[%s] Inserting headers", logPrefix), "progress", hd.highestInDb)
+			exit = true
 		default:
+		}
+		if exit {
+			break
 		}
 		link := hd.insertList[len(hd.insertList)-1]
 		if link.blockHeight <= hd.preverifiedHeight && !link.preverified {

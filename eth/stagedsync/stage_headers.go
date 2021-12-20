@@ -14,6 +14,8 @@ import (
 	"github.com/ledgerwatch/erigon-lib/etl"
 	proto_downloader "github.com/ledgerwatch/erigon-lib/gointerfaces/downloader"
 	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/log/v3"
+
 	"github.com/ledgerwatch/erigon/cmd/downloader/downloadergrpc"
 	"github.com/ledgerwatch/erigon/cmd/rpcdaemon/interfaces"
 	"github.com/ledgerwatch/erigon/common"
@@ -28,7 +30,6 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/snapshotsync"
 	"github.com/ledgerwatch/erigon/turbo/snapshotsync/snapshothashes"
 	"github.com/ledgerwatch/erigon/turbo/stages/headerdownload"
-	"github.com/ledgerwatch/log/v3"
 )
 
 type HeadersCfg struct {
@@ -354,6 +355,7 @@ func HeadersPOW(
 
 	var sentToPeer bool
 	stopped := false
+	originalProgress := headerProgress
 	prevProgress := headerProgress
 Loop:
 	for !stopped {
@@ -429,6 +431,10 @@ Loop:
 		}
 		if test {
 			break
+		}
+		// Let's do full sync job after every 500k block to make sure that all stages can be executed properly
+		if cfg.hd.Progress()-originalProgress > 500_000 {
+			break Loop
 		}
 		timer := time.NewTimer(1 * time.Second)
 		select {
