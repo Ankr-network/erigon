@@ -705,7 +705,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	if header.Number.Cmp(common.Big1) == 0 {
 		err := p.initContract(state, header, txs, receipts, &systemTxs, &header.GasUsed, mining)
 		if err != nil {
-			log.Error("init contract failed: %+v", err)
+			log.Error("init contract failed: %v", err)
 			os.Exit(1)
 		}
 	}

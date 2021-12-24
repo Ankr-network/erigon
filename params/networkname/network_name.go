@@ -13,4 +13,5 @@ const (
 	BSCChainName     = "bsc"
 	ChapelChainName  = "chapel"
 	RialtoChainName  = "rialto"
+	BSCDevName       = "bscdev"
 )

@@ -863,7 +863,11 @@ func setEtherbase(ctx *cli.Context, cfg *ethconfig.Config) {
 		}
 	}
 
-	if ctx.GlobalString(ChainFlag.Name) == networkname.DevChainName {
+	devChains := map[string]bool{
+		networkname.DevChainName: true,
+		networkname.BSCDevName:   true,
+	}
+	if _, ok := devChains[ctx.GlobalString(ChainFlag.Name)]; ok {
 		if etherbase == "" {
 			cfg.Miner.SigKey = core.DevnetSignPrivateKey
 			cfg.Miner.Etherbase = core.DevnetEtherbase
@@ -955,7 +959,7 @@ func DataDirForNetwork(datadir string, network string) string {
 	}
 
 	switch network {
-	case networkname.DevChainName:
+	case networkname.DevChainName, networkname.BSCDevName:
 		return "" // unless explicitly requested, use memory databases
 	case networkname.RinkebyChainName:
 		return filepath.Join(datadir, "rinkeby")
@@ -1400,15 +1404,28 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *node.Config, cfg *ethconfig.Conf
 			Fatalf("Please specify developer account address using --miner.etherbase")
 		}
 		log.Info("Using developer account", "address", developer)
-
 		// Create a new developer genesis block or reuse existing one
 		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer)
 		log.Info("Using custom developer period", "seconds", cfg.Genesis.Config.Clique.Period)
-		//cfg.Genesis = core.DefaultChapelGenesisBlock()
-		//extraData := make([]byte, 32+20+65)
-		//copy(extraData[32:], developer[:])
-		//cfg.Genesis.ExtraData = extraData
-		//log.Info("Using custom developer period", "seconds", cfg.Genesis.Config.Parlia.Period)
+		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) {
+			cfg.Miner.GasPrice = big.NewInt(1)
+		}
+	case networkname.BSCDevName:
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkID = 97
+		}
+		// Create new developer account or reuse existing one
+		developer := cfg.Miner.Etherbase
+		if developer == (common.Address{}) {
+			Fatalf("Please specify developer account address using --miner.etherbase")
+		}
+		log.Info("Using developer account", "address", developer)
+		// Create a new developer genesis block or reuse existing one
+		cfg.Genesis = core.DefaultChapelGenesisBlock()
+		extraData := make([]byte, 32+20+65)
+		// TODO: "it won't work after validator switch at 200 block, remove this chain config in the future"
+		copy(extraData[32:], developer[:])
+		cfg.Genesis.ExtraData = extraData
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
@@ -1479,7 +1496,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultKovanGenesisBlock()
 	case networkname.FermionChainName:
 		genesis = core.DefaultFermionGenesisBlock()
-	case networkname.DevChainName:
+	case networkname.DevChainName, networkname.BSCDevName:
 		Fatalf("Developer chains are ephemeral")
 	}
 	return genesis
