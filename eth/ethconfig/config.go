@@ -252,6 +252,10 @@ type Config struct {
 	OverrideShanghaiTime *big.Int `toml:",omitempty"`
 
 	DropUselessPeers bool
+
+	HeadersStageInsertLimit uint64 `toml:",omitempty"`
+
+	IgnoreHeadersAboveHeight *big.Int `toml:",omitempty"`
 }
 
 type Sync struct {
