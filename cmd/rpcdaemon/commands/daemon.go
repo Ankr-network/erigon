@@ -30,6 +30,17 @@ func APIList(db kv.RoDB, borDb kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.
 	parityImpl := NewParityAPIImpl(db)
 	borImpl := NewBorAPI(base, db, borDb) // bor (consensus) specific
 	otsImpl := NewOtterscanAPI(base, db)
+	gqlImpl := NewGraphQLAPI(base, db)
+
+	if cfg.GraphQLEnabled {
+		list = append(list, rpc.API{
+			Namespace: "graphql",
+			Public:    true,
+			Service:   GraphQLAPI(gqlImpl),
+			Version:   "1.0",
+		})
+	}
+	bscImpl := NewBscAPI(ethImpl)
 
 	for _, enabledAPI := range cfg.API {
 		switch enabledAPI {
@@ -115,6 +126,13 @@ func APIList(db kv.RoDB, borDb kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.
 				Namespace: "ots",
 				Public:    true,
 				Service:   OtterscanAPI(otsImpl),
+				Version:   "1.0",
+			})
+		case "bsc":
+			list = append(list, rpc.API{
+				Namespace: "eth",
+				Public:    true,
+				Service:   BscAPI(bscImpl),
 				Version:   "1.0",
 			})
 		}
