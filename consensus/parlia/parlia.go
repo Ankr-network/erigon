@@ -81,6 +81,11 @@ var (
 		systemcontracts.TokenHubContract:           {},
 		systemcontracts.RelayerIncentivizeContract: {},
 		systemcontracts.CrossChainContract:         {},
+		systemcontracts.BasStakingPoolContract:     {},
+		systemcontracts.BasGovernanceContract:      {},
+		systemcontracts.BasChainConfigContract:     {},
+		systemcontracts.BasRuntimeUpgradeContract:  {},
+		systemcontracts.BasDeployerProxyContract:   {},
 	}
 )
 
