@@ -1125,27 +1125,18 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 ) (types.Transactions, types.Transactions, types.Receipts, error) {
 	// method
 	method := "init"
-	// contracts
-	contracts := []libcommon.Address{
-		systemcontracts.ValidatorContract,
-		systemcontracts.SlashContract,
-		systemcontracts.LightClientContract,
-		systemcontracts.RelayerHubContract,
-		systemcontracts.TokenHubContract,
-		systemcontracts.RelayerIncentivizeContract,
-		systemcontracts.CrossChainContract,
-	}
 	// get packed data
 	data, err := p.validatorSetABI.Pack(method)
 	if err != nil {
 		log.Error("[parlia] Unable to pack tx for init validator set", "err", err)
 		return nil, nil, nil, err
 	}
-	for _, c := range contracts {
-		log.Info("[parlia] init contract", "block hash", header.Hash(), "contract", c)
+	txsToCheck := systemTxs
+	for _, stx := range txsToCheck {
+		log.Info("[parlia] init contract", "block hash", header.Hash(), "contract", *stx.GetTo())
 		var tx types.Transaction
 		var receipt *types.Receipt
-		if systemTxs, tx, receipt, err = p.applyTransaction(header.Coinbase, c, u256.Num0, data, state, header, len(txs), systemTxs, usedGas, mining); err != nil {
+		if systemTxs, tx, receipt, err = p.applyTransaction(header.Coinbase, *stx.GetTo(), u256.Num0, data, state, header, len(txs), systemTxs, usedGas, mining); err != nil {
 			return nil, nil, nil, err
 		}
 		txs = append(txs, tx)
