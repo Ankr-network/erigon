@@ -770,9 +770,11 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 				// it is possible that slash validator failed because of the slash channel is disabled.
 				log.Error("slash validator failed", "block hash", header.Hash(), "address", spoiledVal, "error", err)
 			} else {
-				txs = append(txs, tx)
-				receipts = append(receipts, receipt)
-				log.Debug("slash successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
+				if tx != nil {
+					txs = append(txs, tx)
+					receipts = append(receipts, receipt)
+					log.Debug("slash successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
+				}
 			}
 		}
 	}
@@ -1115,7 +1117,19 @@ func (p *Parlia) slash(spoiledVal libcommon.Address, state *state.IntraBlockStat
 		return nil, nil, nil, err
 	}
 	// apply message
-	return p.applyTransaction(header.Coinbase, systemcontracts.SlashContract, u256.Num0, data, state, header, txIndex, systemTxs, usedGas, mining)
+	for i, stx := range systemTxs {
+		if len(stx.GetData()) == 0 || *stx.GetTo() != systemcontracts.SlashContract {
+			continue
+		}
+		var tx types.Transaction
+		var receipt *types.Receipt
+		var err error
+		if _, tx, receipt, err = p.applyTransaction(header.Coinbase, systemcontracts.SlashContract, u256.Num0, data, state, header, txIndex, systemTxs[i:], usedGas, mining); err != nil {
+			return nil, nil, nil, err
+		}
+		return append(systemTxs[:i], systemTxs[i+1:]...), tx, receipt, nil
+	}
+	return systemTxs, nil, nil, nil
 }
 
 // init contract
