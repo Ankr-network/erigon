@@ -173,7 +173,7 @@ func NewBackend(stack *node.Node, config *ethconfig.Config, logger log.Logger) (
 	}
 
 	// Assemble the Ethereum object
-	chainKv, err := node.OpenDatabase(stack.Config(), logger, kv.ChainDB)
+	chainKv, err := node.OpenDatabase(stack.Config(), kv.ChainDB)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,6 @@ func NewBackend(stack *node.Node, config *ethconfig.Config, logger log.Logger) (
 		sentryCtx:            ctx,
 		sentryCancel:         ctxCancel,
 		config:               config,
-		log:                  logger,
 		chainDB:              chainKv,
 		networkID:            config.NetworkID,
 		etherbase:            config.Miner.Etherbase,
@@ -419,7 +418,6 @@ func NewBackend(stack *node.Node, config *ethconfig.Config, logger log.Logger) (
 	if chainConfig.Clique != nil {
 		consensusConfig = &config.Clique
 	} else if chainConfig.Aura != nil {
-		config.Aura.Etherbase = config.Miner.Etherbase
 		consensusConfig = &config.Aura
 	} else if chainConfig.Parlia != nil {
 		consensusConfig = &config.Parlia
@@ -428,7 +426,7 @@ func NewBackend(stack *node.Node, config *ethconfig.Config, logger log.Logger) (
 	} else {
 		consensusConfig = &config.Ethash
 	}
-	backend.engine = ethconsensusconfig.CreateConsensusEngine(chainConfig, logger, consensusConfig, config.Miner.Notify, config.Miner.Noverify, config.HeimdallgRPCAddress, config.HeimdallURL, config.WithoutHeimdall, stack.DataDir(), allSnapshots, false /* readonly */, backend.chainDB)
+	backend.engine = ethconsensusconfig.CreateConsensusEngine(chainConfig, consensusConfig, config.Miner.Notify, config.Miner.Noverify, config.HeimdallgRPCAddress, config.HeimdallURL, config.WithoutHeimdall, stack.DataDir(), allSnapshots, false /* readonly */, backend.chainDB)
 	backend.forkValidator = engineapi.NewForkValidator(currentBlockNumber, inMemoryExecution, tmpdir)
 
 	if err != nil {

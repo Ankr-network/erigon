@@ -9,12 +9,14 @@ import (
 	"testing"
 
 	"github.com/ledgerwatch/erigon-lib/common/datadir"
+	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon-lib/kv/kvcache"
+
 	"github.com/ledgerwatch/erigon/accounts/abi/bind"
 	"github.com/ledgerwatch/erigon/accounts/abi/bind/backends"
 	"github.com/ledgerwatch/erigon/cmd/rpcdaemon/commands/contracts"
 	"github.com/ledgerwatch/erigon/common/hexutil"
-	"github.com/ledgerwatch/erigon/core"
+	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rpc"
@@ -38,9 +40,9 @@ func TestCallMany(t *testing.T) {
 		address  = crypto.PubkeyToAddress(key.PublicKey)
 		address1 = crypto.PubkeyToAddress(key1.PublicKey)
 		address2 = crypto.PubkeyToAddress(key2.PublicKey)
-		gspec    = &core.Genesis{
+		gspec    = &types.Genesis{
 			Config: params.TestChainConfig,
-			Alloc: core.GenesisAlloc{
+			Alloc: types.GenesisAlloc{
 				address:  {Balance: big.NewInt(9000000000000000000)},
 				address1: {Balance: big.NewInt(200000000000000000)},
 				address2: {Balance: big.NewInt(300000000000000000)},
@@ -56,11 +58,11 @@ func TestCallMany(t *testing.T) {
 	)
 
 	hexBytes, _ := hex.DecodeString(addr2BalanceCheck)
-	balanceCallAddr2 := hexutil.Bytes(hexBytes)
+	balanceCallAddr2 := hexutility.Bytes(hexBytes)
 	hexBytes, _ = hex.DecodeString(addr1BalanceCheck)
-	balanceCallAddr1 := hexutil.Bytes(hexBytes)
+	balanceCallAddr1 := hexutility.Bytes(hexBytes)
 	hexBytes, _ = hex.DecodeString(transferAddr2)
-	transferCallData := hexutil.Bytes(hexBytes)
+	transferCallData := hexutility.Bytes(hexBytes)
 
 	//submit 3 Transactions and commit the results
 	transactOpts, _ := bind.NewKeyedTransactorWithChainID(key, chainID)

@@ -47,5 +47,8 @@ func forkTest(context testContext) error {
 	if root != expectedRoot {
 		return fmt.Errorf("mismatching state roots")
 	}
+	if context.version == clparams.AltairVersion {
+		return nil
+	}
 	return nil
 }

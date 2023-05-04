@@ -2,13 +2,14 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/ledgerwatch/erigon/cmd/utils"
 	"github.com/urfave/cli/v2"
 
 	"github.com/ledgerwatch/erigon/cl/clparams"
 	"github.com/ledgerwatch/erigon/cmd/erigon-cl/core/rawdb"
 	"github.com/ledgerwatch/erigon/cmd/sentinel/cli/flags"
+	"github.com/ledgerwatch/log/v3"
 )
 
 type ConsensusClientCliCfg struct {
@@ -25,7 +26,6 @@ type ConsensusClientCliCfg struct {
 	NoDiscovery      bool                        `json:"noDiscovery"`
 	CheckpointUri    string                      `json:"checkpointUri"`
 	Chaindata        string                      `json:"chaindata"`
-	ELEnabled        bool                        `json:"elEnabled"`
 	ErigonPrivateApi string                      `json:"erigonPrivateApi"`
 	TransitionChain  bool                        `json:"transitionChain"`
 	NetworkType      clparams.NetworkType
@@ -61,6 +61,9 @@ func SetupConsensusClientCfg(ctx *cli.Context) (*ConsensusClientCliCfg, error) {
 	cfg.Addr = ctx.String(flags.SentinelDiscoveryAddr.Name)
 
 	cfg.LogLvl = ctx.Uint(flags.Verbosity.Name)
+	if cfg.LogLvl == uint(log.LvlInfo) {
+		cfg.LogLvl = uint(log.LvlDebug)
+	}
 	cfg.NoDiscovery = ctx.Bool(flags.NoDiscovery.Name)
 	if ctx.String(flags.CheckpointSyncUrlFlag.Name) != "" {
 		cfg.CheckpointUri = ctx.String(flags.CheckpointSyncUrlFlag.Name)
@@ -69,14 +72,13 @@ func SetupConsensusClientCfg(ctx *cli.Context) (*ConsensusClientCliCfg, error) {
 		fmt.Println(cfg.CheckpointUri)
 	}
 	cfg.Chaindata = ctx.String(flags.ChaindataFlag.Name)
-	cfg.ELEnabled = ctx.Bool(flags.ELEnabledFlag.Name)
 	cfg.BeaconDataCfg = rawdb.BeaconDataConfigurations[ctx.String(flags.BeaconDBModeFlag.Name)]
 	// Process bootnodes
 	if ctx.String(flags.BootnodesFlag.Name) != "" {
-		cfg.NetworkCfg.BootNodes = strings.Split(ctx.String(flags.BootnodesFlag.Name), ",")
+		cfg.NetworkCfg.BootNodes = utils.SplitAndTrim(ctx.String(flags.BootnodesFlag.Name))
 	}
 	if ctx.String(flags.SentinelStaticPeersFlag.Name) != "" {
-		cfg.NetworkCfg.StaticPeers = strings.Split(ctx.String(flags.SentinelStaticPeersFlag.Name), ",")
+		cfg.NetworkCfg.StaticPeers = utils.SplitAndTrim(ctx.String(flags.SentinelStaticPeersFlag.Name))
 	}
 	cfg.TransitionChain = ctx.Bool(flags.TransitionChainFlag.Name)
 	return cfg, nil

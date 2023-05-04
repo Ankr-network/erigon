@@ -531,7 +531,6 @@ func (a *PendingAttestation) EncodeSSZ(buf []byte) (dst []byte, err error) {
 	if dst, err = a.Data.EncodeSSZ(dst); err != nil {
 		return
 	}
-	fmt.Println(dst)
 	dst = append(dst, ssz.Uint64SSZ(a.InclusionDelay)...)
 	dst = append(dst, ssz.Uint64SSZ(a.ProposerIndex)...)
 
@@ -603,4 +602,9 @@ func (a *PendingAttestation) HashSSZ() ([32]byte, error) {
 	leaves[3] = merkle_tree.Uint64Root(a.ProposerIndex)
 
 	return merkle_tree.ArraysRoot(leaves, 4)
+}
+
+func IsSlashableAttestationData(d1, d2 *AttestationData) bool {
+	return (!d1.Equal(d2) && d1.Target.Epoch == d2.Target.Epoch) ||
+		(d1.Source.Epoch < d2.Source.Epoch && d2.Target.Epoch < d1.Target.Epoch)
 }

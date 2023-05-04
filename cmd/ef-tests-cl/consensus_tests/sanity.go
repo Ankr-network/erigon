@@ -28,6 +28,7 @@ func testSanityFunction(context testContext) error {
 		return err
 	}
 	startSlot := testState.Slot()
+
 	var block *cltypes.SignedBeaconBlock
 	for _, block = range blocks {
 		err = transition.TransitionState(testState, block, true)
@@ -35,6 +36,7 @@ func testSanityFunction(context testContext) error {
 			break
 		}
 	}
+
 	// Deal with transition error
 	if expectedError && err == nil {
 		return fmt.Errorf("expected error")
@@ -45,7 +47,7 @@ func testSanityFunction(context testContext) error {
 		}
 		return fmt.Errorf("cannot transition state: %s. slot=%d. start_slot=%d", err, block.Block.Slot, startSlot)
 	}
-	expectedRoot, err := expectedState.HashSSZ()
+	finalRoot, err := expectedState.HashSSZ()
 	if err != nil {
 		return err
 	}
@@ -53,7 +55,7 @@ func testSanityFunction(context testContext) error {
 	if err != nil {
 		return err
 	}
-	if haveRoot != expectedRoot {
+	if haveRoot != finalRoot {
 		return fmt.Errorf("mismatching state roots")
 	}
 	return nil

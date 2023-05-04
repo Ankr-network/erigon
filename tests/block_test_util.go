@@ -27,8 +27,10 @@ import (
 	"testing"
 
 	"github.com/holiman/uint256"
+
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon-lib/kv"
 
 	"github.com/ledgerwatch/erigon/common"
@@ -58,8 +60,8 @@ func (bt *BlockTest) UnmarshalJSON(in []byte) error {
 type btJSON struct {
 	Blocks     []btBlock             `json:"blocks"`
 	Genesis    btHeader              `json:"genesisBlockHeader"`
-	Pre        core.GenesisAlloc     `json:"pre"`
-	Post       core.GenesisAlloc     `json:"postState"`
+	Pre        types.GenesisAlloc    `json:"pre"`
+	Post       types.GenesisAlloc    `json:"postState"`
 	BestBlock  common.UnprefixedHash `json:"lastblockhash"`
 	Network    string                `json:"network"`
 	SealEngine string                `json:"sealEngine"`
@@ -95,7 +97,7 @@ type btHeader struct {
 }
 
 type btHeaderMarshaling struct {
-	ExtraData  hexutil.Bytes
+	ExtraData  hexutility.Bytes
 	Number     *math.HexOrDecimal256
 	Difficulty *math.HexOrDecimal256
 	GasLimit   math.HexOrDecimal64
@@ -149,8 +151,8 @@ func (bt *BlockTest) Run(t *testing.T, _ bool) error {
 	return bt.validateImportedHeaders(tx, validBlocks)
 }
 
-func (bt *BlockTest) genesis(config *chain.Config) *core.Genesis {
-	return &core.Genesis{
+func (bt *BlockTest) genesis(config *chain.Config) *types.Genesis {
+	return &types.Genesis{
 		Config:     config,
 		Nonce:      bt.json.Genesis.Nonce.Uint64(),
 		Timestamp:  bt.json.Genesis.Timestamp,

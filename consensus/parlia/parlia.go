@@ -13,32 +13,31 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ledgerwatch/erigon-lib/chain"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/common/length"
-
-	"github.com/ledgerwatch/erigon/core/rawdb"
-	"github.com/ledgerwatch/erigon/crypto/cryptopool"
-
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/holiman/uint256"
-	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/log/v3"
 	"golang.org/x/exp/slices"
 
+	"github.com/ledgerwatch/erigon-lib/chain"
+	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/hexutility"
+	"github.com/ledgerwatch/erigon-lib/common/length"
+	"github.com/ledgerwatch/erigon-lib/kv"
+
 	"github.com/ledgerwatch/erigon/accounts/abi"
-	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/common/u256"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/forkid"
+	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/crypto"
+	"github.com/ledgerwatch/erigon/crypto/cryptopool"
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rlp"
 	"github.com/ledgerwatch/erigon/rpc"
@@ -155,11 +154,11 @@ var (
 type SignFn func(validator libcommon.Address, payload []byte, chainId *big.Int) ([]byte, error)
 
 // ecrecover extracts the Ethereum account address from a signed header.
-func ecrecover(header *types.Header, sigCache *lru.ARCCache, chainId *big.Int) (libcommon.Address, error) {
+func ecrecover(header *types.Header, sigCache *lru.ARCCache[libcommon.Hash, libcommon.Address], chainId *big.Int) (libcommon.Address, error) {
 	// If the signature's already cached, return that
 	hash := header.Hash()
 	if address, known := sigCache.Get(hash); known {
-		return address.(libcommon.Address), nil
+		return address, nil
 	}
 	// Retrieve the signature from the header extra-data
 	if len(header.Extra) < extraSeal {
@@ -233,8 +232,8 @@ type Parlia struct {
 	db          kv.RwDB // Database to store and retrieve snapshot checkpoints
 	chainDb     kv.RwDB
 
-	recentSnaps *lru.ARCCache // Snapshots for recent block to speed up
-	signatures  *lru.ARCCache // Signatures of recent blocks to speed up mining
+	recentSnaps *lru.ARCCache[libcommon.Hash, *Snapshot]         // Snapshots for recent block to speed up
+	signatures  *lru.ARCCache[libcommon.Hash, libcommon.Address] // Signatures of recent blocks to speed up mining
 
 	signer *types.Signer
 
@@ -270,11 +269,11 @@ func New(
 	}
 
 	// Allocate the snapshot caches and create the engine
-	recentSnaps, err := lru.NewARC(inMemorySnapshots)
+	recentSnaps, err := lru.NewARC[libcommon.Hash, *Snapshot](inMemorySnapshots)
 	if err != nil {
 		panic(err)
 	}
-	signatures, err := lru.NewARC(inMemorySignatures)
+	signatures, err := lru.NewARC[libcommon.Hash, libcommon.Address](inMemorySignatures)
 	if err != nil {
 		panic(err)
 	}
@@ -514,7 +513,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	)
 
 	if s, ok := p.recentSnaps.Get(hash); ok {
-		snap = s.(*Snapshot)
+		snap = s
 	} else {
 		p.snapLock.Lock()
 		defer p.snapLock.Unlock()
@@ -524,7 +523,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	for snap == nil {
 		// If an in-memory snapshot was found, use that
 		if s, ok := p.recentSnaps.Get(hash); ok {
-			snap = s.(*Snapshot)
+			snap = s
 			break
 		}
 
@@ -670,7 +669,7 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 }
 
 // Initialize runs any pre-transaction state modifications (e.g. epoch start)
-func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, e consensus.EpochReader, header *types.Header,
+func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, header *types.Header,
 	state *state.IntraBlockState, txs []types.Transaction, uncles []*types.Header, syscall consensus.SystemCall) {
 }
 
@@ -699,7 +698,7 @@ func (p *Parlia) splitTxs(txs types.Transactions, header *types.Header) (userTxs
 // consensus rules that happen at finalization (e.g. block rewards).
 func (p *Parlia) Finalize(_ *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, _ []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
-	e consensus.EpochReader, chain consensus.ChainHeaderReader, syscall consensus.SystemCall,
+	chain consensus.ChainHeaderReader, syscall consensus.SystemCall,
 ) (types.Transactions, types.Receipts, error) {
 	return p.finalize(header, state, txs, receipts, chain, false)
 }
@@ -798,7 +797,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 // consensus rules that happen at finalization (e.g. block rewards).
 func (p *Parlia) FinalizeAndAssemble(_ *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, _ []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
-	e consensus.EpochReader, chain consensus.ChainHeaderReader, syscall consensus.SystemCall, call consensus.Call,
+	chain consensus.ChainHeaderReader, syscall consensus.SystemCall, call consensus.Call,
 ) (*types.Block, types.Transactions, types.Receipts, error) {
 	outTxs, outReceipts, err := p.finalize(header, state, txs, receipts, chain, true)
 	if err != nil {
@@ -1041,7 +1040,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		return nil, err
 	}
 	// call
-	msgData := hexutil.Bytes(data)
+	msgData := hexutility.Bytes(data)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, err
@@ -1272,7 +1271,7 @@ func (p *Parlia) systemCall(from, contract libcommon.Address, data []byte, ibs *
 	)
 	vmConfig := vm.Config{NoReceipts: true}
 	// Create a new context to be used in the EVM environment
-	blockContext := core.NewEVMBlockContext(header, core.GetHashFn(header, nil), p, &from)
+	blockContext := core.NewEVMBlockContext(header, core.GetHashFn(header, nil), p, &from, nil /*excessDataGas*/)
 	evm := vm.NewEVM(blockContext, core.NewEVMTxContext(msg), ibs, chainConfig, vmConfig)
 	ret, leftOverGas, err := evm.Call(
 		vm.AccountRef(msg.From()),
