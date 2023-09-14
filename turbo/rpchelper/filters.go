@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/erigon/turbo/builder"
 	"io"
 	"reflect"
 	"sync"
@@ -39,27 +40,30 @@ type Filters struct {
 	logsRequestor    atomic.Value
 	onNewSnapshot    func()
 
-	storeMu            sync.Mutex
-	logsStores         *SyncMap[LogsSubID, []*types.Log]
-	pendingHeadsStores *SyncMap[HeadsSubID, []*types.Header]
-	pendingTxsStores   *SyncMap[PendingTxsSubID, [][]types.Transaction]
-	logger             log.Logger
+	storeMu               sync.Mutex
+	logsStores            *SyncMap[LogsSubID, []*types.Log]
+	pendingHeadsStores    *SyncMap[HeadsSubID, []*types.Header]
+	pendingTxsStores      *SyncMap[PendingTxsSubID, [][]types.Transaction]
+	logger                log.Logger
+	latestBlockBuildStore *builder.LatestBlockBuiltStore
 }
 
-func New(ctx context.Context, ethBackend ApiBackend, txPool txpool.TxpoolClient, mining txpool.MiningClient, onNewSnapshot func(), logger log.Logger) *Filters {
+func New(ctx context.Context, ethBackend ApiBackend, txPool txpool.TxpoolClient, mining txpool.MiningClient,
+	onNewSnapshot func(), logger log.Logger, latestBlockBuildStore *builder.LatestBlockBuiltStore) *Filters {
 	logger.Info("rpc filters: subscribing to Erigon events")
 
 	ff := &Filters{
-		headsSubs:          NewSyncMap[HeadsSubID, Sub[*types.Header]](),
-		pendingTxsSubs:     NewSyncMap[PendingTxsSubID, Sub[[]types.Transaction]](),
-		pendingLogsSubs:    NewSyncMap[PendingLogsSubID, Sub[types.Logs]](),
-		pendingBlockSubs:   NewSyncMap[PendingBlockSubID, Sub[*types.Block]](),
-		logsSubs:           NewLogsFilterAggregator(),
-		onNewSnapshot:      onNewSnapshot,
-		logsStores:         NewSyncMap[LogsSubID, []*types.Log](),
-		pendingHeadsStores: NewSyncMap[HeadsSubID, []*types.Header](),
-		pendingTxsStores:   NewSyncMap[PendingTxsSubID, [][]types.Transaction](),
-		logger:             logger,
+		headsSubs:             NewSyncMap[HeadsSubID, Sub[*types.Header]](),
+		pendingTxsSubs:        NewSyncMap[PendingTxsSubID, Sub[[]types.Transaction]](),
+		pendingLogsSubs:       NewSyncMap[PendingLogsSubID, Sub[types.Logs]](),
+		pendingBlockSubs:      NewSyncMap[PendingBlockSubID, Sub[*types.Block]](),
+		logsSubs:              NewLogsFilterAggregator(),
+		onNewSnapshot:         onNewSnapshot,
+		logsStores:            NewSyncMap[LogsSubID, []*types.Log](),
+		pendingHeadsStores:    NewSyncMap[HeadsSubID, []*types.Header](),
+		pendingTxsStores:      NewSyncMap[PendingTxsSubID, [][]types.Transaction](),
+		logger:                logger,
+		latestBlockBuildStore: latestBlockBuildStore,
 	}
 
 	go func() {
@@ -254,6 +258,8 @@ func (ff *Filters) HandlePendingBlock(reply *txpool.OnPendingBlockReply) {
 		v.Send(b)
 		return nil
 	})
+
+	ff.latestBlockBuildStore.AddBlockBuilt(b)
 }
 
 func (ff *Filters) subscribeToPendingLogs(ctx context.Context, mining txpool.MiningClient) error {

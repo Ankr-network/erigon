@@ -192,6 +192,8 @@ type Ethereum struct {
 	blockWriter    *blockio.BlockWriter
 	kvRPC          *remotedbserver.KvServer
 	logger         log.Logger
+
+	latestBlockBuiltStore *builder.LatestBlockBuiltStore
 }
 
 func splitAddrIntoHostAndPort(addr string) (host string, port int, err error) {
@@ -274,7 +276,8 @@ func New(stack *node.Node, config *ethconfig.Config, logger log.Logger) (*Ethere
 			Events:      shards.NewEvents(),
 			Accumulator: shards.NewAccumulator(),
 		},
-		logger: logger,
+		logger:                logger,
+		latestBlockBuiltStore: latestBlockBuiltStore,
 	}
 
 	// Check if we have an already initialized chain and fall back to
@@ -820,7 +823,7 @@ func (s *Ethereum) Init(stack *node.Node, config *ethconfig.Config) error {
 	// start HTTP API
 	httpRpcCfg := stack.Config().Http
 	ethRpcClient, txPoolRpcClient, miningRpcClient, stateCache, ff, err := cli.EmbeddedServices(ctx, chainKv, httpRpcCfg.StateCache, blockReader, ethBackendRPC,
-		s.txPoolGrpcServer, miningRPC, stateDiffClient, s.logger)
+		s.txPoolGrpcServer, miningRPC, stateDiffClient, s.logger, s.latestBlockBuiltStore)
 	if err != nil {
 		return err
 	}

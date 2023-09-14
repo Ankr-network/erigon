@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/erigon/turbo/builder"
 	"net"
 	"net/http"
 	"os"
@@ -242,7 +243,7 @@ func EmbeddedServices(ctx context.Context,
 	erigonDB kv.RoDB, stateCacheCfg kvcache.CoherentConfig,
 	blockReader services.FullBlockReader, ethBackendServer remote.ETHBACKENDServer, txPoolServer txpool.TxpoolServer,
 	miningServer txpool.MiningServer, stateDiffClient StateChangesClient,
-	logger log.Logger,
+	logger log.Logger, latestBlockBuildStore *builder.LatestBlockBuiltStore,
 ) (eth rpchelper.ApiBackend, txPool txpool.TxpoolClient, mining txpool.MiningClient, stateCache kvcache.Cache, ff *rpchelper.Filters, err error) {
 	if stateCacheCfg.CacheSize > 0 {
 		// notification about new blocks (state stream) doesn't work now inside erigon - because
@@ -262,7 +263,7 @@ func EmbeddedServices(ctx context.Context,
 
 	txPool = direct.NewTxPoolClient(txPoolServer)
 	mining = direct.NewMiningClient(miningServer)
-	ff = rpchelper.New(ctx, eth, txPool, mining, func() {}, logger)
+	ff = rpchelper.New(ctx, eth, txPool, mining, func() {}, logger, latestBlockBuildStore)
 
 	return
 }
@@ -479,7 +480,8 @@ func RemoteServices(ctx context.Context, cfg httpcfg.HttpCfg, logger log.Logger,
 		}
 	}()
 
-	ff = rpchelper.New(ctx, eth, txPool, mining, onNewSnapshot, logger)
+	lbs := builder.NewLatestBlockBuiltStore()
+	ff = rpchelper.New(ctx, eth, txPool, mining, onNewSnapshot, logger, lbs)
 	return db, borDb, eth, txPool, mining, stateCache, blockReader, ff, agg, err
 }
 
