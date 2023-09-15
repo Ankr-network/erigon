@@ -242,6 +242,7 @@ func (ff *Filters) subscribeToPendingBlocks(ctx context.Context, mining txpool.M
 }
 
 func (ff *Filters) HandlePendingBlock(reply *txpool.OnPendingBlockReply) {
+	ff.logger.Info("Set Pending Block ggggggg")
 	b := &types.Block{}
 	if reply == nil || len(reply.RplBlock) == 0 {
 		return

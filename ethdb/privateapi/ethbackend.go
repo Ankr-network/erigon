@@ -97,6 +97,7 @@ func (s *EthBackendServer) Version(context.Context, *emptypb.Empty) (*types2.Ver
 }
 
 func (s *EthBackendServer) PendingBlock(_ context.Context, _ *emptypb.Empty) (*remote.PendingBlockReply, error) {
+	s.logger.Info("PendingBlock ggggggg", "store", s.latestBlockBuiltStore)
 	pendingBlock := s.latestBlockBuiltStore.BlockBuilt()
 	if pendingBlock == nil {
 		return nil, nil
